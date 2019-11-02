@@ -1,0 +1,6 @@
+version: '2'
+services:
+    metrix:
+        build: .
+        volumes:
+            - .:/usr/src/app
