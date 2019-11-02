@@ -3,7 +3,7 @@
 #[macro_use] extern crate rocket;
 
 #[get("/ping")]
-fn index() -> &'static str {
+fn ping() -> &'static str {
     "pong"
 }
 
