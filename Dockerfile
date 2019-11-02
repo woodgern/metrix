@@ -4,4 +4,5 @@ COPY . /home/rocket
 
 USER root
 
-EXPOSE 8000 
+EXPOSE 8000
+
