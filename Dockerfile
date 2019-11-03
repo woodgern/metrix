@@ -4,4 +4,6 @@ COPY . /home/rocket
 
 USER root
 
-EXPOSE 8000 
+RUN cargo build
+
+EXPOSE 8000
