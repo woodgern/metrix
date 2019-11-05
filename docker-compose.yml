@@ -6,3 +6,17 @@ services:
       - .:/home/rocket/
     ports:
       - "8000:8000"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: stompy
+      POSTGRES_DB: metrix
+    depends_on:
+      - db
+
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: stompy
+      POSTGRES_DB: metrix
