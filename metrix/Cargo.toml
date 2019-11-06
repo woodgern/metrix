@@ -9,4 +9,5 @@ edition = "2018"
 [dependencies]
 rocket = "0.4.2"
 diesel = { version = "1.0.0", features = ["postgres"] }
+diesel_migrations = "1.4.0"
 diesel_cli = { version = "1.4.0", features = ["postgres"] }
