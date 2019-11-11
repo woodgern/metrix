@@ -21,13 +21,8 @@ use schema::metrics;
 use models::*;
 use rocket_contrib::json::Json;
 
-#[get("/ping")]
-fn ping() -> &'static str {
-    "pong"
-}
-
 #[get("/")]
-fn root_ping() -> &'static str {
+fn ping() -> &'static str {
     "pong"
 }
 
@@ -54,8 +49,7 @@ fn main() {
     println!("### migration done; result: {}", result.is_ok());
 
     rocket::ignite()
-        .mount("/metrix", routes![ping])
-        .mount("/ping", routes![root_ping])
+        .mount("/ping", routes![ping])
         .mount("/metrics", routes![create_metric_route])
         .launch();
 }
