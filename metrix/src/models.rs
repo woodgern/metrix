@@ -1,6 +1,5 @@
 use super::schema::metrics;
 use serde_json;
-// use diesel::types::Timestamp;
 use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize, Queryable)]

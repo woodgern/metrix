@@ -1,8 +1,3 @@
-// pub mod schema;
-// pub mod models;
-
-// #[macro_use] extern crate diesel;
-
 use diesel::prelude::*;
 
 use std::env;

@@ -2,17 +2,15 @@
 #[macro_use] extern crate rocket;
 #[macro_use] extern crate diesel;
 #[macro_use] extern crate serde;
-// #[macro_use] extern crate diesel_migrations;
+#[macro_use] extern crate diesel_migrations;
 extern crate rocket_contrib;
 extern crate serde_json;
-
-// use serde_json::json;
 
 // needed for Diesel stuff?
 // "Re-exports important traits and types. Meant to be glob imported when using Diesel."
 use diesel::prelude::*;
 
-// embed_migrations!();
+embed_migrations!();
 
 pub mod lib;
 pub mod models;
@@ -34,7 +32,7 @@ fn root_ping() -> &'static str {
 }
 
 
-#[post("/metrics", data = "<metric_body>")]
+#[post("/", data = "<metric_body>")]
 fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
     let new_metric = NewMetric { ..metric_body.into_inner() };
     let db_conn = establish_connection();
@@ -49,14 +47,15 @@ fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
 
 fn main() {
     println!("### Enter the Metrix ###");
-    // let db_conn = establish_connection();
+    let db_conn = establish_connection();
 
     println!("### running db migrations...");
-    // let result = embedded_migrations::run(&db_conn);
-    // println!("### migration done; result: {}", result.is_ok());
+    let result = embedded_migrations::run(&db_conn);
+    println!("### migration done; result: {}", result.is_ok());
 
     rocket::ignite()
+        .mount("/metrix", routes![ping])
         .mount("/ping", routes![root_ping])
-        .mount("/metrix", routes![ping, create_metric_route])
+        .mount("/metrics", routes![create_metric_route])
         .launch();
 }
