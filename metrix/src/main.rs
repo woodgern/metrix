@@ -3,6 +3,7 @@
 #[macro_use] extern crate diesel;
 #[macro_use] extern crate serde;
 #[macro_use] extern crate diesel_migrations;
+extern crate chrono;
 extern crate rocket_contrib;
 extern crate serde_json;
 

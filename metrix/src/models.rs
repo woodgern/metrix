@@ -1,6 +1,6 @@
 use super::schema::metrics;
 use serde_json;
-use std::time::SystemTime;
+use chrono::naive::NaiveDateTime;
 
 #[derive(Serialize, Deserialize, Queryable)]
 // #[table_name="metrics"] -- idk why it throws compile error
@@ -9,8 +9,8 @@ pub struct Metric {
     pub id: i32,
     pub metric_name: String,
     pub data: serde_json::Value,
-    pub created_at: SystemTime,
-    pub updated_at: SystemTime,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Serialize, Deserialize, Insertable)]
