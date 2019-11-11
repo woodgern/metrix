@@ -6,7 +6,7 @@
 extern crate rocket_contrib;
 extern crate serde_json;
 
-use serde_json::json;
+// use serde_json::json;
 
 // needed for Diesel stuff?
 // "Re-exports important traits and types. Meant to be glob imported when using Diesel."
@@ -35,14 +35,13 @@ fn root_ping() -> &'static str {
 
 
 #[post("/metrics", data = "<metric_body>")]
-fn create_metric_route(metric_body: Json<Metric>) -> String {
-    // "metrics".to_string()
-    let new_metric = Metric { ..metric_body.into_inner() };
+fn create_metric_route(metric_body: Json<NewMetric>) -> String {
+    let new_metric = NewMetric { ..metric_body.into_inner() };
     let db_conn = establish_connection();
 
-    diesel::insert_into(metrics::table)
+    let result: Metric = diesel::insert_into(metrics::table)
         .values(&new_metric)
-        .execute(&db_conn)
+        .get_result(&db_conn)
         .expect("Error saving new metric");
 
     "dont\n".to_string()
