@@ -29,7 +29,7 @@ fn ping() -> &'static str {
 
 #[post("/", data = "<metric_body>")]
 fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
-    let new_metric = NewMetric { ..metric_body.into_inner() };
+    let new_metric: NewMetric = metric_body.into_inner();
     let db_conn = establish_connection();
 
     let result: Metric = diesel::insert_into(metrics::table)
