@@ -45,12 +45,15 @@ fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
 #[get("/?<offset>")]
 fn query_metric_route(offset: Option<&RawStr>) -> Json<Vec<Metric>> {
     let db_conn = establish_connection();
-    let metric_id: i32 = 0;
+    let mut metric_id: i32 = 0;
 
-    // if offset.is_some() {
-    //     metric_id = offset.unwrap().url_decode();
-    // }
-    // https://api.rocket.rs/v0.3/rocket/http/struct.RawStr.html
+    if offset.is_some() {
+        let result = offset.unwrap().url_decode();
+        // https://api.rocket.rs/v0.3/rocket/http/struct.RawStr.html
+        if result.is_ok() {
+            metric_id = result.ok().unwrap().parse().unwrap();
+        }
+    }
 
     let results = metrics::table.filter(metrics::id.gt(metric_id))
         .order(metrics::id)
