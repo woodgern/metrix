@@ -1,10 +1,5 @@
-// pub mod schema;
-// pub mod models;
-
-// #[macro_use] extern crate diesel;
-
 use diesel::prelude::*;
-use diesel::pg::PgConnection;
+
 use std::env;
 
 pub fn establish_connection() -> PgConnection {
