@@ -35,7 +35,7 @@ fn root_ping() -> &'static str {
 
 
 #[post("/metrics", data = "<metric_body>")]
-fn create_metric_route(metric_body: Json<NewMetric>) -> String {
+fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
     let new_metric = NewMetric { ..metric_body.into_inner() };
     let db_conn = establish_connection();
 
@@ -44,7 +44,7 @@ fn create_metric_route(metric_body: Json<NewMetric>) -> String {
         .get_result(&db_conn)
         .expect("Error saving new metric");
 
-    "dont\n".to_string()
+    Json(result)
 }
 
 fn main() {
