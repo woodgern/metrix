@@ -27,7 +27,6 @@ fn ping() -> &'static str {
     "pong"
 }
 
-
 #[post("/", data = "<metric_body>")]
 fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
     let new_metric: NewMetric = metric_body.into_inner();
@@ -41,6 +40,23 @@ fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
     Json(result)
 }
 
+
+use rocket::http::RawStr;
+
+#[get("/?<offset>")]
+fn query_metric_route(offset: Option<&RawStr>) -> Json<Vec<Metric>> {
+    let db_conn = establish_connection();
+    let metric_id = offset;
+
+    let results = metrics::table.filter(metrics::id.eq(9))
+        .order(metrics::id)
+        .limit(10)
+        .load::<Metric>(&db_conn)
+        .expect("Error loading metrics");
+
+    Json(results)
+}
+
 fn main() {
     println!("### Enter the Metrix ###");
     let db_conn = establish_connection();
@@ -51,6 +67,6 @@ fn main() {
 
     rocket::ignite()
         .mount("/ping", routes![ping])
-        .mount("/metrics", routes![create_metric_route])
+        .mount("/metrics", routes![create_metric_route, query_metric_route])
         .launch();
 }
