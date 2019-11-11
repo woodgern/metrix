@@ -8,6 +8,10 @@ extern crate serde_json;
 
 use serde_json::json;
 
+// needed for Diesel stuff?
+// "Re-exports important traits and types. Meant to be glob imported when using Diesel."
+use diesel::prelude::*;
+
 // embed_migrations!();
 
 pub mod lib;
@@ -34,19 +38,14 @@ fn root_ping() -> &'static str {
 fn create_metric_route(metric_body: Json<Metric>) -> String {
     // "metrics".to_string()
     let new_metric = Metric { ..metric_body.into_inner() };
-    // let db_conn = establish_connection();
-
-    use diesel::prelude::*;
-    let db_conn = PgConnection::establish(
-        &"postgres://user:stompy@db:5432/metrix".to_string())
-        .expect(&format!("Error connecting to {}", "database_url"));
+    let db_conn = establish_connection();
 
     diesel::insert_into(metrics::table)
         .values(&new_metric)
         .execute(&db_conn)
         .expect("Error saving new metric");
 
-    "dont".to_string()
+    "dont\n".to_string()
 }
 
 fn main() {
