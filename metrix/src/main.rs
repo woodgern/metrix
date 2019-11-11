@@ -21,6 +21,8 @@ use lib::establish_connection;
 use schema::metrics;
 use models::*;
 use rocket_contrib::json::Json;
+use rocket::http::RawStr;
+
 
 #[get("/")]
 fn ping() -> &'static str {
@@ -40,15 +42,17 @@ fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
     Json(result)
 }
 
-
-use rocket::http::RawStr;
-
 #[get("/?<offset>")]
 fn query_metric_route(offset: Option<&RawStr>) -> Json<Vec<Metric>> {
     let db_conn = establish_connection();
-    let metric_id = offset;
+    let metric_id: i32 = 0;
 
-    let results = metrics::table.filter(metrics::id.eq(9))
+    // if offset.is_some() {
+    //     metric_id = offset.unwrap().url_decode();
+    // }
+    // https://api.rocket.rs/v0.3/rocket/http/struct.RawStr.html
+
+    let results = metrics::table.filter(metrics::id.gt(metric_id))
         .order(metrics::id)
         .limit(10)
         .load::<Metric>(&db_conn)
