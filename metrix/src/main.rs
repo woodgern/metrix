@@ -22,6 +22,7 @@ use schema::metrics;
 use models::*;
 use rocket_contrib::json::Json;
 use rocket::http::RawStr;
+use chrono::naive::NaiveDateTime;
 
 
 #[get("/")]
@@ -42,20 +43,45 @@ fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
     Json(result)
 }
 
-#[get("/?<offset>")]
-fn query_metric_route(offset: Option<&RawStr>) -> Json<Vec<Metric>> {
+#[get("/?<offset>&<start_datetime>&<end_datetime>")]
+fn query_metric_route(
+    offset: Option<&RawStr>,
+    start_datetime: Option<&RawStr>,
+    end_datetime: Option<&RawStr>,
+) -> Json<Vec<Metric>> {
     let db_conn = establish_connection();
-    let mut metric_id: i32 = 0;
+    // let mut metric_id: i32 = 0;
+    // let query = metrics::table.order(metrics::created_at);
 
+    let mut query = Box::new(metrics::id.gt(0));
     if offset.is_some() {
         let result = offset.unwrap().url_decode();
         // https://api.rocket.rs/v0.3/rocket/http/struct.RawStr.html
         if result.is_ok() {
-            metric_id = result.ok().unwrap().parse().unwrap();
+            let metric_id: i32 = result.ok().unwrap().parse().unwrap();
+            // query = query.filter(Box::new(metrics::id.gt(metric_id)))
+            query = Box::new(metrics::id.gt(metric_id));
         }
     }
 
-    let results = metrics::table.filter(metrics::id.gt(metric_id))
+    // if start_datetime.is_some() {
+    //     let result = start_datetime.unwrap().url_decode();
+    //     if result.is_ok() {
+    //         let created_at_start = result.ok().unwrap().parse().unwrap();
+    //         let created_at_start = NaiveDateTime::parse_from_str(
+    //             created_at_start,
+    //             "%Y-%m-%dT%H:%M:%S" // "2014-5-17T12:34:56"
+    //         );
+    //         query = query.filter(
+    //             metrics::created_at.gt(created_at_start)
+    //         );
+    //     }
+    // }
+
+
+    // metrics::table.filter(metrics::id.gt(metric_id))
+    let results = metrics::table
+        .filter(query)
         .order(metrics::id)
         .limit(10)
         .load::<Metric>(&db_conn)
