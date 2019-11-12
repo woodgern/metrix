@@ -52,8 +52,8 @@ fn query_metric_route(
     let db_conn = establish_connection();
     // let mut metric_id: i32 = 0;
     // let query = metrics::table.order(metrics::created_at);
-
-    let mut query = Box::new(metrics::id.gt(0));
+    use diesel::sql_types::Bool;
+    let mut query: Box<dyn BoxableExpression<schema::metrics::table, _, SqlType = Bool>> = Box::new(metrics::id.gt(0));
     if offset.is_some() {
         let result = offset.unwrap().url_decode();
         // https://api.rocket.rs/v0.3/rocket/http/struct.RawStr.html
@@ -64,19 +64,28 @@ fn query_metric_route(
         }
     }
 
-    // if start_datetime.is_some() {
-    //     let result = start_datetime.unwrap().url_decode();
-    //     if result.is_ok() {
-    //         let created_at_start = result.ok().unwrap().parse().unwrap();
-    //         let created_at_start = NaiveDateTime::parse_from_str(
-    //             created_at_start,
-    //             "%Y-%m-%dT%H:%M:%S" // "2014-5-17T12:34:56"
-    //         );
-    //         query = query.filter(
-    //             metrics::created_at.gt(created_at_start)
-    //         );
-    //     }
-    // }
+    if start_datetime.is_some() {
+        let result = start_datetime.unwrap().url_decode();
+        if result.is_ok() {
+            let created_at_start = result.ok().unwrap();
+            let created_at_start_parsed = NaiveDateTime::parse_from_str(
+                &created_at_start,               // "2019-11-11T01:00:00"
+                &"%Y-%m-%dT%H:%M:%S".to_string() // "2014-5-17T12:34:56"
+            );
+
+            if created_at_start_parsed.is_ok() {
+                query = Box::new(
+                    query.and(
+                        Box::new(
+                            metrics::created_at.gt(
+                                created_at_start_parsed.ok().unwrap()
+                            )
+                        )
+                    )
+                );
+            }
+        }
+    }
 
 
     // metrics::table.filter(metrics::id.gt(metric_id))
