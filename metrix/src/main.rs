@@ -23,6 +23,7 @@ use models::*;
 use rocket_contrib::json::Json;
 use rocket::http::RawStr;
 use chrono::naive::NaiveDateTime;
+use diesel::sql_query;
 
 
 #[get("/")]
@@ -50,17 +51,17 @@ fn query_metric_route(
     end_datetime: Option<&RawStr>,
 ) -> Json<Vec<Metric>> {
     let db_conn = establish_connection();
-    // let mut metric_id: i32 = 0;
-    // let query = metrics::table.order(metrics::created_at);
-    use diesel::sql_types::Bool;
-    let mut query: Box<dyn BoxableExpression<schema::metrics::table, _, SqlType = Bool>> = Box::new(metrics::id.gt(0));
+    let mut filter_clause = String::from("WHERE 1=1");
+
     if offset.is_some() {
         let result = offset.unwrap().url_decode();
         // https://api.rocket.rs/v0.3/rocket/http/struct.RawStr.html
         if result.is_ok() {
             let metric_id_str: String = result.ok().unwrap();
-            let metric_id: i32 = metric_id_str.parse().unwrap();
-            query = Box::new(metrics::id.gt(metric_id));
+            filter_clause.insert_str(
+                filter_clause.len(),
+                &format!(" AND id > {}", metric_id_str).to_string()
+            );
         }
     }
 
@@ -69,19 +70,14 @@ fn query_metric_route(
         if result.is_ok() {
             let created_at_start = result.ok().unwrap();
             let created_at_start_parsed = NaiveDateTime::parse_from_str(
-                &created_at_start,               // "2019-11-11T01:00:00"
+                &created_at_start,
                 &"%Y-%m-%dT%H:%M:%S".to_string() // "2014-5-17T12:34:56"
             );
 
             if created_at_start_parsed.is_ok() {
-                query = Box::new(
-                    query.and(
-                        Box::new(
-                            metrics::created_at.gt(
-                                created_at_start_parsed.ok().unwrap()
-                            )
-                        )
-                    )
+                filter_clause.insert_str(
+                    filter_clause.len(),
+                    &format!(" AND created_at > '{}'", created_at_start).to_string()
                 );
             }
         }
@@ -92,29 +88,24 @@ fn query_metric_route(
         if result.is_ok() {
             let created_at_end = result.ok().unwrap();
             let created_at_end_parsed = NaiveDateTime::parse_from_str(
-                &created_at_end,               // "2019-11-11T01:00:00"
+                &created_at_end,
                 &"%Y-%m-%dT%H:%M:%S".to_string() // "2014-5-17T12:34:56"
             );
 
             if created_at_end_parsed.is_ok() {
-                query = Box::new(
-                    query.and(
-                        Box::new(
-                            metrics::created_at.lt(
-                                created_at_end_parsed.ok().unwrap()
-                            )
-                        )
-                    )
+                filter_clause.insert_str(
+                    filter_clause.len(),
+                    &format!(" AND created_at < '{}'", created_at_end).to_string()
                 );
             }
         }
     }
 
-    let results = metrics::table
-        .filter(query)
-        .order(metrics::id)
-        .limit(10)
-        .load::<Metric>(&db_conn)
+    println!("### QUERY: SELECT * FROM metrics {};", filter_clause);
+
+    let query_string = format!("SELECT * FROM metrics {} ORDER BY id LIMIT 10", filter_clause);
+    let results = sql_query(query_string)
+        .load(&db_conn)
         .expect("Error loading metrics");
 
     Json(results)
