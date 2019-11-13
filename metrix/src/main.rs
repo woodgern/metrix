@@ -58,8 +58,8 @@ fn query_metric_route(
         let result = offset.unwrap().url_decode();
         // https://api.rocket.rs/v0.3/rocket/http/struct.RawStr.html
         if result.is_ok() {
-            let metric_id: i32 = result.ok().unwrap().parse().unwrap();
-            // query = query.filter(Box::new(metrics::id.gt(metric_id)))
+            let metric_id_str: String = result.ok().unwrap();
+            let metric_id: i32 = metric_id_str.parse().unwrap();
             query = Box::new(metrics::id.gt(metric_id));
         }
     }
@@ -87,8 +87,29 @@ fn query_metric_route(
         }
     }
 
+    if end_datetime.is_some() {
+        let result = end_datetime.unwrap().url_decode();
+        if result.is_ok() {
+            let created_at_end = result.ok().unwrap();
+            let created_at_end_parsed = NaiveDateTime::parse_from_str(
+                &created_at_end,               // "2019-11-11T01:00:00"
+                &"%Y-%m-%dT%H:%M:%S".to_string() // "2014-5-17T12:34:56"
+            );
 
-    // metrics::table.filter(metrics::id.gt(metric_id))
+            if created_at_end_parsed.is_ok() {
+                query = Box::new(
+                    query.and(
+                        Box::new(
+                            metrics::created_at.lt(
+                                created_at_end_parsed.ok().unwrap()
+                            )
+                        )
+                    )
+                );
+            }
+        }
+    }
+
     let results = metrics::table
         .filter(query)
         .order(metrics::id)
