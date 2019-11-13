@@ -5,6 +5,7 @@ use diesel::prelude::*;
 use crate::lib::establish_connection;
 use crate::schema::metrics;
 use crate::models::*;
+use crate::parser:parse_query_string;
 
 use rocket_contrib::json::Json;
 use rocket::http::RawStr;
@@ -30,11 +31,12 @@ fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
     Json(result)
 }
 
-#[get("/?<offset>&<start_datetime>&<end_datetime>")]
+#[get("/?<offset>&<start_datetime>&<end_datetime>&<q>")]
 fn query_metric_route(
     offset: Option<&RawStr>,
     start_datetime: Option<&RawStr>,
     end_datetime: Option<&RawStr>,
+    q: Option<&RawStr>,
 ) -> Json<Vec<Metric>> {
     let db_conn = establish_connection();
 
@@ -72,6 +74,19 @@ fn query_metric_route(
                     end_datetime.unwrap().url_decode().ok().unwrap()
                 ).to_string()
             );
+        }
+    }
+
+    if q.is_some() {
+        let result = parse_query_string(q);
+        match result {
+            Ok(o) => {
+                filter_clause.insert_str(
+                    filter_clause.len(),
+                    &format!(" AND {}", o).to_string()
+                );
+            },
+            Err(_) => continue,
         }
     }
 
