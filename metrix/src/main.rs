@@ -77,7 +77,7 @@ fn query_metric_route(
             if created_at_start_parsed.is_ok() {
                 filter_clause.insert_str(
                     filter_clause.len(),
-                    &format!(" AND created_at > '{}'", created_at_start).to_string()
+                    &format!(" AND created_at >= '{}'", created_at_start).to_string()
                 );
             }
         }
@@ -95,7 +95,7 @@ fn query_metric_route(
             if created_at_end_parsed.is_ok() {
                 filter_clause.insert_str(
                     filter_clause.len(),
-                    &format!(" AND created_at < '{}'", created_at_end).to_string()
+                    &format!(" AND created_at <= '{}'", created_at_end).to_string()
                 );
             }
         }
