@@ -2,9 +2,8 @@ use super::schema::metrics;
 use serde_json;
 use chrono::naive::NaiveDateTime;
 
-#[derive(Serialize, Deserialize, Queryable)]
-// #[table_name="metrics"] -- idk why it throws compile error
-// "error: cannot find attribute `table_name` in this scope" ...
+#[derive(Serialize, Deserialize, Queryable, QueryableByName)]
+#[table_name="metrics"]
 pub struct Metric {
     pub id: i32,
     pub metric_name: String,
