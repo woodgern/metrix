@@ -12,5 +12,11 @@ server: ## start docker/server
 	test -f /.dockerenv || docker-compose run --service-ports --rm --name metrix metrix bash || true
 	test -f /.dockerenv && ./run.sh
 
+build: ## just build the app
+	test -f /.dockerenv && cd metrix && cargo build
+
+test: ## run cargo tests
+	test -f /.dockerenv && cd metrix && cargo test
+
 shell: ## jump into server container
 	test -f /.dockerenv || docker exec -it metrix bash
