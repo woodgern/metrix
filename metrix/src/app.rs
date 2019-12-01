@@ -37,8 +37,8 @@ fn query_metric_route(
     end_datetime: Option<&RawStr>,
 ) -> Json<Vec<Metric>> {
     let db_conn = establish_connection();
-    let mut filter_clause = String::from("WHERE 1=1");
 
+    let mut filter_clause = String::from("WHERE 1=1");
     if offset.is_some() {
         let result = offset.unwrap().url_decode();
         // https://api.rocket.rs/v0.3/rocket/http/struct.RawStr.html
@@ -52,38 +52,26 @@ fn query_metric_route(
     }
 
     if start_datetime.is_some() {
-        let result = start_datetime.unwrap().url_decode();
-        if result.is_ok() {
-            let created_at_start = result.ok().unwrap();
-            let created_at_start_parsed = NaiveDateTime::parse_from_str(
-                &created_at_start,
-                &"%Y-%m-%dT%H:%M:%S".to_string() // "2014-5-17T12:34:56"
+        if is_valid_datetime_str(start_datetime.unwrap()) {
+            filter_clause.insert_str(
+                filter_clause.len(),
+                &format!(
+                    " AND created_at >= '{}'",
+                    start_datetime.unwrap().url_decode().ok().unwrap()
+                ).to_string()
             );
-
-            if created_at_start_parsed.is_ok() {
-                filter_clause.insert_str(
-                    filter_clause.len(),
-                    &format!(" AND created_at >= '{}'", created_at_start).to_string()
-                );
-            }
         }
     }
 
     if end_datetime.is_some() {
-        let result = end_datetime.unwrap().url_decode();
-        if result.is_ok() {
-            let created_at_end = result.ok().unwrap();
-            let created_at_end_parsed = NaiveDateTime::parse_from_str(
-                &created_at_end,
-                &"%Y-%m-%dT%H:%M:%S".to_string() // "2014-5-17T12:34:56"
+        if is_valid_datetime_str(end_datetime.unwrap()) {
+            filter_clause.insert_str(
+                filter_clause.len(),
+                &format!(
+                    " AND created_at <= '{}'",
+                    end_datetime.unwrap().url_decode().ok().unwrap()
+                ).to_string()
             );
-
-            if created_at_end_parsed.is_ok() {
-                filter_clause.insert_str(
-                    filter_clause.len(),
-                    &format!(" AND created_at <= '{}'", created_at_end).to_string()
-                );
-            }
         }
     }
 
@@ -95,6 +83,25 @@ fn query_metric_route(
         .expect("Error loading metrics");
 
     Json(results)
+}
+
+fn is_valid_datetime_str(raw_string: &RawStr) -> bool {
+    let result = raw_string.url_decode();
+    if result.is_err() {
+        return false;
+    }
+
+    let datetime = result.ok().unwrap();
+    let datetime_parsed = NaiveDateTime::parse_from_str(
+        &datetime,
+        &"%Y-%m-%dT%H:%M:%S".to_string() // "2014-5-17T12:34:56"
+    );
+
+    if datetime_parsed.is_ok() {
+        return true;
+    }
+
+    false
 }
 
 pub fn create_app() -> rocket::Rocket {
