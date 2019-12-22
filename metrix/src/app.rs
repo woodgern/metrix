@@ -5,10 +5,11 @@ use diesel::prelude::*;
 use crate::lib::establish_connection;
 use crate::schema::metrics;
 use crate::models::*;
-use crate::parser:parse_query_string;
+use crate::parser::parse_query_string;
 
 use rocket_contrib::json::Json;
 use rocket::http::RawStr;
+use rocket::response::status::BadRequest;
 use chrono::naive::NaiveDateTime;
 use diesel::sql_query;
 
@@ -37,7 +38,7 @@ fn query_metric_route(
     start_datetime: Option<&RawStr>,
     end_datetime: Option<&RawStr>,
     q: Option<&RawStr>,
-) -> Json<Vec<Metric>> {
+) -> Result<Json<Vec<Metric>>, BadRequest<String>> {
     let db_conn = establish_connection();
 
     let mut filter_clause = String::from("WHERE 1=1");
@@ -78,15 +79,20 @@ fn query_metric_route(
     }
 
     if q.is_some() {
-        let result = parse_query_string(q);
-        match result {
-            Ok(o) => {
-                filter_clause.insert_str(
-                    filter_clause.len(),
-                    &format!(" AND {}", o).to_string()
-                );
-            },
-            Err(_) => continue,
+        let query_string = q.unwrap().url_decode();
+        if query_string.is_ok() {
+            let result = parse_query_string(query_string.ok().unwrap());
+            match result {
+                Ok(o) => {
+                    filter_clause.insert_str(
+                        filter_clause.len(),
+                        &format!(" AND {}", o).to_string()
+                    );
+                },
+                Err(_) => {
+                    return Err(BadRequest(Some("Malformatted query".to_string())))
+                },
+            }
         }
     }
 
@@ -97,7 +103,7 @@ fn query_metric_route(
         .load(&db_conn)
         .expect("Error loading metrics");
 
-    Json(results)
+    Ok(Json(results))
 }
 
 fn is_valid_datetime_str(raw_string: &RawStr) -> bool {

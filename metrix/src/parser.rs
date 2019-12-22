@@ -1,5 +1,4 @@
-#[macro_use]
-extern crate nom;
+use nom;
 
 use std::str;
 use std::fmt;
@@ -22,13 +21,30 @@ pub enum ExpressionType {
 }
 
 pub struct BaseExpression {
-    field: String,
+    field: FieldType,
     comparator: String,
-    value: String,
+    value: Value,
+}
+
+pub enum FieldType {
+    RootField(Field),
+    NestedField(Field),
+    TerminalField(()),
+}
+
+pub struct Field {
+    field_root: String,
+    sub_fields: Box<FieldType>,
+}
+
+pub enum Value {
+    String(String),
+    Integer(String),
 }
 
 pub fn parse_query_string(input: String) -> Result<ExpressionType, &'static str> {
-    match root_expression(input.into_bytes()) {
+    println!("{:?}", input);
+    match root_expression(&input.into_bytes()) {
         Ok((_, o)) => Ok(o),
         Err(_) => Err("Failed to parse query string"),
     }
@@ -57,13 +73,54 @@ impl fmt::Display for Expression {
 
 impl fmt::Display for BaseExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "(")?;
-        write!(f, "{}", self.field)?;
-        write!(f, " ")?;
-        write!(f, "{}", self.comparator)?;
-        write!(f, " ")?;
-        write!(f, "{}", self.value)?;
-        write!(f, ")")
+        match &self.value {
+            Value::String(v) => {
+                write!(f, "(")?;
+                write!(f, "{}", self.field)?;
+                write!(f, " ")?;
+                write!(f, "{}", self.comparator)?;
+                write!(f, " ")?;
+                write!(f, "{}", v)?;
+                write!(f, ")")
+            },
+            Value::Integer(i) => {
+                write!(f, "(")?;
+                write!(f, "CAST ({} AS INTEGER)", self.field)?;
+                write!(f, " ")?;
+                write!(f, "{}", self.comparator)?;
+                write!(f, " ")?;
+                write!(f, "{}", i)?;
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+impl fmt::Display for FieldType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FieldType::RootField(field) => {
+                write!(f, "{}", field.field_root)?;
+                write!(f, "{}", field.sub_fields)
+            },
+            FieldType::NestedField(field) => {
+                match *field.sub_fields {
+                    FieldType::TerminalField(_) => {
+                        write!(f, "->>")?;
+                        write!(f, "'{}'", field.field_root)
+                    },
+                    FieldType::NestedField(_) => {
+                        write!(f, "->")?;
+                        write!(f, "'{}'", field.field_root)?;
+                        write!(f, "{}", field.sub_fields)
+                    },
+                    _ => panic!("Root field not structure root")
+                }
+            },
+            FieldType::TerminalField(_) => {
+                write!(f, "")
+            },
+        }
     }
 }
 
@@ -118,9 +175,9 @@ named!(base_expression<ExpressionType>,
         value: parameter_value >>
         (ExpressionType::BaseExpression(
             BaseExpression {
-                field: str::from_utf8(field).unwrap().to_string(),
+                field,
                 comparator: str::from_utf8(comparator).unwrap().to_string(),
-                value: value,
+                value,
             }
         ))
     )
@@ -136,33 +193,69 @@ named!(comparison_operator,
     )
 );
 
-named!(parameter_name,
-    do_parse!(
-        param: take_while1!(is_sql_identifier) >>
-        (param)
+named!(parameter_name<FieldType>,
+    alt!(
+          do_parse!(
+            field: take_while1!(is_sql_identifier) >>
+            tag!(".") >>
+            sub_fields: sub_parameter_name >>
+            (FieldType::RootField(
+                Field {
+                    field_root: str::from_utf8(field).unwrap().to_string(),
+                    sub_fields: Box::new(sub_fields),
+                }
+            ))
+          )
+        | do_parse!(
+            field: take_while1!(is_sql_identifier) >>
+            (FieldType::RootField(
+                Field {
+                    field_root: str::from_utf8(field).unwrap().to_string(),
+                    sub_fields: Box::new(FieldType::TerminalField(())),
+                }
+            ))
+        )
     )
 );
 
-named!(parameter_value<String>,
+named!(sub_parameter_name<FieldType>,
     alt!(
           do_parse!(
-              s: digit >>
-              tag!(".") >>
-              e: digit >>
-              (
-                format!("{}.{}",
-                    str::from_utf8(s).unwrap().to_string(),
-                    str::from_utf8(e).unwrap().to_string(),
-                )
-              )
+            field: take_while1!(is_sql_identifier) >>
+            tag!(".") >>
+            sub_fields: sub_parameter_name >>
+            (FieldType::NestedField(
+                Field {
+                    field_root: str::from_utf8(field).unwrap().to_string(),
+                    sub_fields: Box::new(sub_fields),
+                }
+            ))
           )
         | do_parse!(
+            field: take_while1!(is_sql_identifier) >>
+            (FieldType::NestedField(
+                Field {
+                    field_root: str::from_utf8(field).unwrap().to_string(),
+                    sub_fields: Box::new(FieldType::TerminalField(())),
+                }
+            ))
+        )
+    )
+);
+
+named!(parameter_value<Value>,
+    alt!(
+          do_parse!(
               d: digit >>
-              (str::from_utf8(d).unwrap().to_string())
+              (Value::Integer(
+                str::from_utf8(d).unwrap().to_string()
+              ))
           )
         | do_parse!(
-            literal: delimited!(opt!(tag!("\"")), take_until!("\""), opt!(tag!("\""))) >>
-            (format!("\"{}\"", str::from_utf8(literal).unwrap().to_string()))
+            literal: delimited!(opt!(tag!("'")), take_until!("'"), opt!(tag!("'"))) >>
+            (Value::String(
+                format!("'{}'", str::from_utf8(literal).unwrap().to_string())
+            ))
         )
     )
 );
@@ -172,5 +265,5 @@ named!(opt_multispace<Option<&[u8]>>,
 );
 
 fn is_sql_identifier(chr: u8) -> bool {
-    is_alphanumeric(chr) || chr == '_' as u8 || chr == '.' as u8
+    is_alphanumeric(chr) || chr == '_' as u8
 }

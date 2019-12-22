@@ -3,6 +3,7 @@
 #[macro_use] extern crate diesel;
 #[macro_use] extern crate serde;
 #[macro_use] extern crate diesel_migrations;
+#[macro_use] extern crate nom;
 extern crate chrono;
 extern crate rocket_contrib;
 extern crate serde_json;
@@ -13,6 +14,7 @@ pub mod lib;
 pub mod models;
 pub mod schema;
 pub mod app;
+pub mod parser;
 
 use lib::establish_connection;
 
