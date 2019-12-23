@@ -16,6 +16,8 @@ build: ## just build the app
 	test -f /.dockerenv && cd metrix && cargo build
 
 tests: ## run cargo tests
+	test -f /.dockerenv || docker-compose build metrix
+	test -f /.dockerenv || docker-compose run --service-ports --rm --name metrix metrix bash ../test.sh || true
 	test -f /.dockerenv && ./test.sh
 
 shell: ## jump into server container
