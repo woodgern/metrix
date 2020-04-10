@@ -1,6 +1,25 @@
 use super::schema::metrics;
 use serde_json;
 use chrono::naive::NaiveDateTime;
+use diesel::sql_types::*;
+
+#[derive(Serialize, Deserialize, Queryable, QueryableByName)]
+pub struct Bucket {
+    #[sql_type = "BigInt"]
+    pub value: i64,
+    #[sql_type = "Integer"]
+    pub bucket: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Buckets {
+    pub buckets: Vec<Bucket>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BucketedData {
+    pub data: Buckets,
+}
 
 #[derive(Serialize, Deserialize, Queryable, QueryableByName)]
 #[table_name="metrics"]
