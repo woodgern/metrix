@@ -41,6 +41,91 @@ fn query_metric_route(
 ) -> Result<Json<Vec<Metric>>, BadRequest<String>> {
     let db_conn = establish_connection();
 
+    let filter_clause: String;
+    let result = build_filter_clause(offset, start_datetime, end_datetime, q);
+    match result {
+        Ok(o) => {
+            filter_clause = o;
+        },
+        Err(e) => {
+            return Err(e);
+        },
+    }
+
+    println!("### QUERY: SELECT * FROM metrics {};", filter_clause);
+
+    let query_string = format!("SELECT * FROM metrics {} ORDER BY id LIMIT 10", filter_clause);
+    let results = sql_query(query_string)
+        .load(&db_conn)
+        .expect("Error loading metrics");
+
+    Ok(Json(results))
+}
+
+#[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>")]
+fn aggregate_metrics_route(
+    aggregation: Option<&RawStr>,
+    offset: Option<&RawStr>,
+    start_datetime: Option<&RawStr>,
+    end_datetime: Option<&RawStr>,
+    q: Option<&RawStr>,
+    bucket_count: i32,
+) -> Result<Json<BucketedData>, BadRequest<String>> {
+
+    let db_conn = establish_connection();
+
+    let filter_clause: String;
+    let result = build_filter_clause(offset, start_datetime, end_datetime, q);
+    match result {
+        Ok(o) => {
+            filter_clause = o;
+        },
+        Err(e) => {
+            return Err(e);
+        },
+    }
+
+    let start_timestamp= NaiveDateTime::parse_from_str(
+        &start_datetime.unwrap(),
+        &"%Y-%m-%dT%H:%M:%S".to_string()
+    ).ok().unwrap().timestamp();
+
+    let end_timestamp = NaiveDateTime::parse_from_str(
+        &end_datetime.unwrap(),
+        &"%Y-%m-%dT%H:%M:%S".to_string()
+    ).ok().unwrap().timestamp();
+
+    let bucket_size = (end_timestamp - start_timestamp) as f32 / bucket_count as f32;
+
+
+    let query_string = format!(
+        "SELECT
+            COUNT(*) as value,
+            FLOOR((extract(epoch from created_at)-{})/{})::INTEGER as bucket
+        FROM metrics {} GROUP BY bucket",
+        start_timestamp,
+        bucket_size,
+        filter_clause
+    );
+    let results = sql_query(query_string)
+        .load(&db_conn)
+        .expect("Error loading metrics");
+
+    return Ok(Json(
+        BucketedData {
+            data: Buckets {
+                buckets: results,
+            }
+        }
+    ))
+}
+
+fn build_filter_clause(
+    offset: Option<&RawStr>,
+    start_datetime: Option<&RawStr>,
+    end_datetime: Option<&RawStr>,
+    q: Option<&RawStr>,
+) -> Result<String, BadRequest<String>> {
     let mut filter_clause = String::from("WHERE 1=1");
     if offset.is_some() {
         let result = offset.unwrap().url_decode();
@@ -96,14 +181,7 @@ fn query_metric_route(
         }
     }
 
-    println!("### QUERY: SELECT * FROM metrics {};", filter_clause);
-
-    let query_string = format!("SELECT * FROM metrics {} ORDER BY id LIMIT 10", filter_clause);
-    let results = sql_query(query_string)
-        .load(&db_conn)
-        .expect("Error loading metrics");
-
-    Ok(Json(results))
+    return Ok(filter_clause);
 }
 
 fn is_valid_datetime_str(raw_string: &RawStr) -> bool {
@@ -128,5 +206,5 @@ fn is_valid_datetime_str(raw_string: &RawStr) -> bool {
 pub fn create_app() -> rocket::Rocket {
     rocket::ignite()
         .mount("/ping", routes![ping])
-        .mount("/metrics", routes![create_metric_route, query_metric_route])
+        .mount("/metrics", routes![create_metric_route, query_metric_route, aggregate_metrics_route])
 }
