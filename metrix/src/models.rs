@@ -3,12 +3,18 @@ use serde_json;
 use chrono::naive::NaiveDateTime;
 use diesel::sql_types::*;
 
-#[derive(Serialize, Deserialize, Queryable, QueryableByName)]
-pub struct Bucket {
+#[derive(Queryable, QueryableByName)]
+pub struct BucketResult {
     #[sql_type = "BigInt"]
     pub value: i64,
     #[sql_type = "Integer"]
-    pub bucket: i32,
+    pub bucket_index: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Bucket {
+    pub value: i64,
+    pub bucket: NaiveDateTime,
 }
 
 #[derive(Serialize, Deserialize)]
