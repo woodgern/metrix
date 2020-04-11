@@ -87,13 +87,13 @@ fn aggregate_metrics_route(
         },
     }
 
-    let start_timestamp= NaiveDateTime::parse_from_str(
-        &start_datetime.unwrap(),
+    let start_timestamp = NaiveDateTime::parse_from_str(
+        &start_datetime.unwrap().url_decode().ok().unwrap(),
         &"%Y-%m-%dT%H:%M:%S".to_string()
     ).ok().unwrap().timestamp();
 
     let end_timestamp = NaiveDateTime::parse_from_str(
-        &end_datetime.unwrap(),
+        &end_datetime.unwrap().url_decode().ok().unwrap(),
         &"%Y-%m-%dT%H:%M:%S".to_string()
     ).ok().unwrap().timestamp();
 
