@@ -1,3 +1,5 @@
+use std::mem::replace;
+
 // "Re-exports important traits and types.
 // Meant to be glob imported when using Diesel."
 use diesel::prelude::*;
@@ -97,24 +99,38 @@ fn aggregate_metrics_route(
 
     let bucket_size = (end_timestamp - start_timestamp) as f32 / bucket_count as f32;
 
-
     let query_string = format!(
         "SELECT
             COUNT(*) as value,
-            FLOOR((extract(epoch from created_at)-{})/{})::INTEGER as bucket
-        FROM metrics {} GROUP BY bucket",
+            FLOOR((extract(epoch from created_at)-{})/{})::INTEGER as bucket_index
+        FROM metrics {} GROUP BY bucket_index",
         start_timestamp,
         bucket_size,
         filter_clause
     );
     let results = sql_query(query_string)
-        .load(&db_conn)
+        .load::<BucketResult>(&db_conn)
         .expect("Error loading metrics");
 
+    let mut padded_results: Vec<Bucket> = vec![();bucket_count as usize]
+        .iter().enumerate().map(
+            |(i, bucket)|
+            Bucket {
+                value: 0,
+                bucket: build_bucket_datetime(i as i64, bucket_size as i64, start_timestamp),
+            }
+        ).collect();
+
+    for result in &results {
+        replace(&mut padded_results[result.bucket_index as usize], Bucket {
+            value: result.value,
+            bucket: build_bucket_datetime(result.bucket_index as i64, bucket_size as i64, start_timestamp),
+        });
+    }
     return Ok(Json(
         BucketedData {
             data: Buckets {
-                buckets: results,
+                buckets: padded_results,
             }
         }
     ))
@@ -201,6 +217,10 @@ fn is_valid_datetime_str(raw_string: &RawStr) -> bool {
     }
 
     false
+}
+
+fn build_bucket_datetime(bucket_index: i64, bucket_size: i64, start_timestamp: i64) -> NaiveDateTime {
+    return NaiveDateTime::from_timestamp(bucket_index * bucket_size + start_timestamp, 0)
 }
 
 pub fn create_app() -> rocket::Rocket {
