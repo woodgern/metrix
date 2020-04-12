@@ -1,29 +1,21 @@
+use chrono::naive::NaiveDateTime;
 use std::mem::replace;
 
-// "Re-exports important traits and types.
-// Meant to be glob imported when using Diesel."
 use diesel::prelude::*;
+use diesel::sql_query;
+use rocket::http::RawStr;
+use rocket::response::status::BadRequest;
+use rocket_contrib::json::Json;
 
-use crate::lib::establish_connection;
-use crate::schema::metrics;
+use crate::db::establish_connection;
 use crate::models::*;
 use crate::parser::parse_parameter_name;
 use crate::parser::parse_query_string;
+use crate::schema::metrics;
 
-use rocket_contrib::json::Json;
-use rocket::http::RawStr;
-use rocket::response::status::BadRequest;
-use chrono::naive::NaiveDateTime;
-use diesel::sql_query;
-
-
-#[get("/")]
-fn ping() -> &'static str {
-    "pong"
-}
 
 #[post("/", data = "<metric_body>")]
-fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
+pub fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
     let new_metric: NewMetric = metric_body.into_inner();
     let db_conn = establish_connection();
 
@@ -36,7 +28,7 @@ fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
 }
 
 #[get("/?<offset>&<start_datetime>&<end_datetime>&<q>")]
-fn query_metric_route(
+pub fn query_metric_route(
     offset: Option<&RawStr>,
     start_datetime: Option<&RawStr>,
     end_datetime: Option<&RawStr>,
@@ -66,7 +58,7 @@ fn query_metric_route(
 }
 
 #[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_name>")]
-fn aggregate_metrics_route(
+pub fn aggregate_metrics_route(
     aggregation: Option<&RawStr>,
     offset: Option<&RawStr>,
     start_datetime: Option<&RawStr>,
@@ -278,10 +270,4 @@ fn is_valid_datetime_str(raw_string: &RawStr) -> bool {
 
 fn build_bucket_datetime(bucket_index: i64, bucket_size: i64, start_timestamp: i64) -> NaiveDateTime {
     return NaiveDateTime::from_timestamp(bucket_index * bucket_size + start_timestamp, 0)
-}
-
-pub fn create_app() -> rocket::Rocket {
-    rocket::ignite()
-        .mount("/ping", routes![ping])
-        .mount("/metrics", routes![create_metric_route, query_metric_route, aggregate_metrics_route])
 }

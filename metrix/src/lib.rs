@@ -1,10 +1,24 @@
-use diesel::prelude::*;
+#![feature(proc_macro_hygiene, decl_macro)]
 
-use std::env;
+#[macro_use] extern crate rocket;
+#[macro_use] extern crate diesel;
+#[macro_use] extern crate serde;
 
-pub fn establish_connection() -> PgConnection {
-    let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-        .expect(&format!("Error connecting to {}", database_url))
+pub mod db;
+pub mod models;
+pub mod parser;
+pub mod schema;
+
+mod routes;
+
+pub fn create_app() -> rocket::Rocket {
+    rocket::ignite()
+        .mount("/ping", routes![
+            routes::ping::ping,
+        ])
+        .mount("/metrics", routes![
+            routes::metrics::create_metric_route,
+            routes::metrics::query_metric_route,
+            routes::metrics::aggregate_metrics_route,
+        ])
 }

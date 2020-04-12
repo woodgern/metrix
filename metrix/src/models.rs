@@ -1,7 +1,10 @@
-use super::schema::metrics;
-use serde_json;
 use chrono::naive::NaiveDateTime;
+
 use diesel::sql_types::*;
+use serde_json;
+
+use crate::schema::metrics;
+
 
 #[derive(Queryable, QueryableByName)]
 pub struct BucketResult {
