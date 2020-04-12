@@ -3,11 +3,11 @@ use std::fmt;
 
 use nom::{
     branch::alt,
-    bytes::complete::{take_while1, tag},
-    combinator::map,
+    bytes::complete::{take_while1, take_until, tag_no_case, tag},
+    combinator::{map, opt},
     character::is_alphanumeric,
     character::complete::{digit1 as digit, multispace1 as multispace},
-    sequence::tuple,
+    sequence::{delimited, tuple},
     IResult,
 };
 
@@ -53,75 +53,11 @@ pub fn parse_query_string(input: String) -> Result<ExpressionType, &'static str>
     }
 }
 
-// This uses the proper nom 5 approach, as opposed to the outdated nom 4 approach like the rest
-// of the parser. The rest will need to be refactored.
 pub fn parse_parameter_name(input: String) -> Result<FieldType, &'static str> {
-    match param_name(&input.into_bytes()) {
+    match parameter_name(&input.into_bytes()) {
         Ok((_, o)) => Ok(o),
         Err(_) => Err("Failed to parse parameter name"),
     }
-}
-
-fn param_name(s: &[u8]) -> IResult<&[u8], FieldType> {
-    alt((
-        map(
-            tuple((
-                take_while1(is_sql_identifier),
-                tag("."),
-                sub_param_name,
-            )),
-            |(field, _, sub_fields)| {
-                FieldType::RootField(
-                    Field {
-                        field_root: str::from_utf8(field).unwrap().to_string(),
-                        sub_fields: Box::new(sub_fields),
-                    }
-                )
-            }
-        ),
-        map(
-            take_while1(is_sql_identifier),
-            |field| {
-                FieldType::RootField(
-                    Field {
-                        field_root: str::from_utf8(field).unwrap().to_string(),
-                        sub_fields: Box::new(FieldType::TerminalField(())),
-                    }
-                )
-            }
-        ),
-    ))(s)
-}
-
-fn sub_param_name(s: &[u8]) -> IResult<&[u8], FieldType> {
-    alt((
-        map(
-            tuple((
-                take_while1(is_sql_identifier),
-                tag("."),
-                sub_param_name,
-            )),
-            |(field, _, sub_fields)| {
-                FieldType::NestedField(
-                    Field {
-                        field_root: str::from_utf8(field).unwrap().to_string(),
-                        sub_fields: Box::new(sub_fields),
-                    }
-                )
-            }
-        ),
-        map(
-            take_while1(is_sql_identifier),
-            |field| {
-                FieldType::NestedField(
-                    Field {
-                        field_root: str::from_utf8(field).unwrap().to_string(),
-                        sub_fields: Box::new(FieldType::TerminalField(())),
-                    }
-                )
-            }
-        ),
-    ))(s)
 }
 
 impl fmt::Display for ExpressionType {
@@ -198,145 +134,194 @@ impl fmt::Display for FieldType {
     }
 }
 
-named!(root_expression<ExpressionType>,
-    complete!(expression)
-);
+fn root_expression(s: &[u8]) -> IResult<&[u8], ExpressionType> {
+    alt((
+        map(
+            tuple((
+                base_expression,
+                multispace,
+                tag_no_case("or"),
+                multispace,
+                expression,
+            )),
+            |(left, _, _, _, right)| {
+                ExpressionType::OuterExpression(
+                    Expression {
+                        operator: "or".to_string(),
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    }
+                )
+            }
+        ),
+        and_expression,
+        base_expression,
+    ))(s)
+}
 
-named!(expression<ExpressionType>,
-    alt!(
-        do_parse!(
-            left: base_expression >>
-            multispace >>
-            tag_no_case!("or") >>
-            multispace >>
-            right: expression >>
-            (ExpressionType::OuterExpression(
+fn expression(s: &[u8]) -> IResult<&[u8], ExpressionType> {
+    alt((
+        map(
+            tuple((
+                base_expression,
+                multispace,
+                tag_no_case("or"),
+                multispace,
+                expression,
+            )),
+            |(left, _, _, _, right)| {
+                ExpressionType::OuterExpression(
+                    Expression {
+                        operator: "or".to_string(),
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    }
+                )
+            },
+        ),
+        and_expression,
+        base_expression,
+    ))(s)
+}
+
+fn and_expression(s: &[u8]) -> IResult<&[u8], ExpressionType> {
+    map(
+        tuple((
+            base_expression,
+            multispace,
+            tag_no_case("and"),
+            multispace,
+            expression,
+        )),
+        |(left, _, _, _, right)| {
+            ExpressionType::OuterExpression(
                 Expression {
-                    operator: "or".to_string(),
+                    operator: "and".to_string(),
                     left: Box::new(left),
                     right: Box::new(right),
                 }
-            ))
-        )
-        | and_expression
-        | base_expression
-    )
-);
+            )
+        },
+    )(s)
+}
 
-named!(and_expression<ExpressionType>,
-    do_parse!(
-        left: base_expression >>
-        multispace >>
-        tag_no_case!("and") >>
-        multispace >>
-        right: expression >>
-        (ExpressionType::OuterExpression(
-            Expression {
-                operator: "and".to_string(),
-                left: Box::new(left),
-                right: Box::new(right),
+fn base_expression(s: &[u8]) -> IResult<&[u8], ExpressionType> {
+    map(
+        tuple((
+            parameter_name,
+            opt_multispace,
+            comparison_operator,
+            opt_multispace,
+            parameter_value,
+        )),
+        |(field, _, comparator, _, value)| {
+            ExpressionType::BaseExpression(
+                BaseExpression {
+                    field,
+                    comparator: str::from_utf8(comparator).unwrap().to_string(),
+                    value,
+                }
+            )
+        },
+    )(s)
+}
+
+fn comparison_operator(s: &[u8]) -> IResult<&[u8], &[u8]> {
+    alt((
+        tag_no_case("<="),
+        tag_no_case(">="),
+        tag_no_case("="),
+        tag_no_case("<"),
+        tag_no_case(">"),
+    ))(s)
+}
+
+fn parameter_name(s: &[u8]) -> IResult<&[u8], FieldType> {
+    alt((
+        map(
+            tuple((
+                take_while1(is_sql_identifier),
+                tag("."),
+                sub_parameter_name,
+            )),
+            |(field, _, sub_fields)| {
+                FieldType::RootField(
+                    Field {
+                        field_root: str::from_utf8(field).unwrap().to_string(),
+                        sub_fields: Box::new(sub_fields),
+                    }
+                )
             }
-        ))
-    )
-);
-
-named!(base_expression<ExpressionType>,
-    do_parse!(
-        field: parameter_name >>
-        opt_multispace >>
-        comparator: comparison_operator >>
-        opt_multispace >>
-        value: parameter_value >>
-        (ExpressionType::BaseExpression(
-            BaseExpression {
-                field,
-                comparator: str::from_utf8(comparator).unwrap().to_string(),
-                value,
+        ),
+        map(
+            take_while1(is_sql_identifier),
+            |field| {
+                FieldType::RootField(
+                    Field {
+                        field_root: str::from_utf8(field).unwrap().to_string(),
+                        sub_fields: Box::new(FieldType::TerminalField(())),
+                    }
+                )
             }
-        ))
-    )
-);
+        ),
+    ))(s)
+}
 
-named!(comparison_operator,
-    alt!(
-          do_parse!(op: tag_no_case!("<=") >> (op))
-        | do_parse!(op: tag_no_case!(">=") >> (op))
-        | do_parse!(op: tag!("=") >> (op))
-        | do_parse!(op: tag!("<") >> (op))
-        | do_parse!(op: tag!(">") >> (op))
-    )
-);
+fn sub_parameter_name(s: &[u8]) -> IResult<&[u8], FieldType> {
+    alt((
+        map(
+            tuple((
+                take_while1(is_sql_identifier),
+                tag("."),
+                sub_parameter_name,
+            )),
+            |(field, _, sub_fields)| {
+                FieldType::NestedField(
+                    Field {
+                        field_root: str::from_utf8(field).unwrap().to_string(),
+                        sub_fields: Box::new(sub_fields),
+                    }
+                )
+            }
+        ),
+        map(
+            take_while1(is_sql_identifier),
+            |field| {
+                FieldType::NestedField(
+                    Field {
+                        field_root: str::from_utf8(field).unwrap().to_string(),
+                        sub_fields: Box::new(FieldType::TerminalField(())),
+                    }
+                )
+            }
+        ),
+    ))(s)
+}
 
-named!(parameter_name<FieldType>,
-    alt!(
-          do_parse!(
-            field: take_while1!(is_sql_identifier) >>
-            tag!(".") >>
-            sub_fields: sub_parameter_name >>
-            (FieldType::RootField(
-                Field {
-                    field_root: str::from_utf8(field).unwrap().to_string(),
-                    sub_fields: Box::new(sub_fields),
-                }
-            ))
-          )
-        | do_parse!(
-            field: take_while1!(is_sql_identifier) >>
-            (FieldType::RootField(
-                Field {
-                    field_root: str::from_utf8(field).unwrap().to_string(),
-                    sub_fields: Box::new(FieldType::TerminalField(())),
-                }
-            ))
-        )
-    )
-);
+fn parameter_value(s: &[u8]) -> IResult<&[u8], Value> {
+    alt((
+        map(
+            digit,
+            |d| {
+                Value::Integer(
+                    str::from_utf8(d).unwrap().to_string()
+                )
+            },
+        ),
+        map(
+            delimited(opt(tag("'")), take_until("'"), opt(tag("'"))),
+            |literal| {
+                Value::String(
+                    format!("'{}'", str::from_utf8(literal).unwrap().to_string())
+                )
+            },
+        ),
+    ))(s)
+}
 
-named!(sub_parameter_name<FieldType>,
-    alt!(
-          do_parse!(
-            field: take_while1!(is_sql_identifier) >>
-            tag!(".") >>
-            sub_fields: sub_parameter_name >>
-            (FieldType::NestedField(
-                Field {
-                    field_root: str::from_utf8(field).unwrap().to_string(),
-                    sub_fields: Box::new(sub_fields),
-                }
-            ))
-          )
-        | do_parse!(
-            field: take_while1!(is_sql_identifier) >>
-            (FieldType::NestedField(
-                Field {
-                    field_root: str::from_utf8(field).unwrap().to_string(),
-                    sub_fields: Box::new(FieldType::TerminalField(())),
-                }
-            ))
-        )
-    )
-);
-
-named!(parameter_value<Value>,
-    alt!(
-          do_parse!(
-              d: digit >>
-              (Value::Integer(
-                str::from_utf8(d).unwrap().to_string()
-              ))
-          )
-        | do_parse!(
-            literal: delimited!(opt!(tag!("'")), take_until!("'"), opt!(tag!("'"))) >>
-            (Value::String(
-                format!("'{}'", str::from_utf8(literal).unwrap().to_string())
-            ))
-        )
-    )
-);
-
-named!(opt_multispace<Option<&[u8]>>,
-    opt!(multispace)
-);
+fn opt_multispace(s: &[u8]) -> IResult<&[u8], Option<&[u8]>> {
+    opt(multispace)(s)
+}
 
 fn is_sql_identifier(chr: u8) -> bool {
     is_alphanumeric(chr) || chr == '_' as u8
