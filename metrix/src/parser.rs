@@ -1,11 +1,14 @@
-use nom;
-
 use std::str;
 use std::fmt;
 
 use nom::{
+    branch::alt,
+    bytes::complete::{take_while1, tag},
+    combinator::map,
     character::is_alphanumeric,
     character::complete::{digit1 as digit, multispace1 as multispace},
+    sequence::tuple,
+    IResult,
 };
 
 pub struct Expression {
@@ -48,6 +51,77 @@ pub fn parse_query_string(input: String) -> Result<ExpressionType, &'static str>
         Ok((_, o)) => Ok(o),
         Err(_) => Err("Failed to parse query string"),
     }
+}
+
+// This uses the proper nom 5 approach, as opposed to the outdated nom 4 approach like the rest
+// of the parser. The rest will need to be refactored.
+pub fn parse_parameter_name(input: String) -> Result<FieldType, &'static str> {
+    match param_name(&input.into_bytes()) {
+        Ok((_, o)) => Ok(o),
+        Err(_) => Err("Failed to parse parameter name"),
+    }
+}
+
+fn param_name(s: &[u8]) -> IResult<&[u8], FieldType> {
+    alt((
+        map(
+            tuple((
+                take_while1(is_sql_identifier),
+                tag("."),
+                sub_param_name,
+            )),
+            |(field, _, sub_fields)| {
+                FieldType::RootField(
+                    Field {
+                        field_root: str::from_utf8(field).unwrap().to_string(),
+                        sub_fields: Box::new(sub_fields),
+                    }
+                )
+            }
+        ),
+        map(
+            take_while1(is_sql_identifier),
+            |field| {
+                FieldType::RootField(
+                    Field {
+                        field_root: str::from_utf8(field).unwrap().to_string(),
+                        sub_fields: Box::new(FieldType::TerminalField(())),
+                    }
+                )
+            }
+        ),
+    ))(s)
+}
+
+fn sub_param_name(s: &[u8]) -> IResult<&[u8], FieldType> {
+    alt((
+        map(
+            tuple((
+                take_while1(is_sql_identifier),
+                tag("."),
+                sub_param_name,
+            )),
+            |(field, _, sub_fields)| {
+                FieldType::NestedField(
+                    Field {
+                        field_root: str::from_utf8(field).unwrap().to_string(),
+                        sub_fields: Box::new(sub_fields),
+                    }
+                )
+            }
+        ),
+        map(
+            take_while1(is_sql_identifier),
+            |field| {
+                FieldType::NestedField(
+                    Field {
+                        field_root: str::from_utf8(field).unwrap().to_string(),
+                        sub_fields: Box::new(FieldType::TerminalField(())),
+                    }
+                )
+            }
+        ),
+    ))(s)
 }
 
 impl fmt::Display for ExpressionType {

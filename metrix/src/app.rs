@@ -7,6 +7,7 @@ use diesel::prelude::*;
 use crate::lib::establish_connection;
 use crate::schema::metrics;
 use crate::models::*;
+use crate::parser::parse_parameter_name;
 use crate::parser::parse_query_string;
 
 use rocket_contrib::json::Json;
@@ -64,7 +65,7 @@ fn query_metric_route(
     Ok(Json(results))
 }
 
-#[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>")]
+#[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_name>")]
 fn aggregate_metrics_route(
     aggregation: Option<&RawStr>,
     offset: Option<&RawStr>,
@@ -72,6 +73,7 @@ fn aggregate_metrics_route(
     end_datetime: Option<&RawStr>,
     q: Option<&RawStr>,
     bucket_count: i32,
+    metric_name: Option<&RawStr>,
 ) -> Result<Json<BucketedData>, BadRequest<String>> {
 
     let db_conn = establish_connection();
@@ -87,6 +89,22 @@ fn aggregate_metrics_route(
         },
     }
 
+    let mut parameter_name = String::from("");
+    if metric_name.is_some() {
+        let param_name = metric_name.unwrap().url_decode();
+        if param_name.is_ok() {
+            let result = parse_parameter_name(param_name.ok().unwrap());
+            match result {
+                Ok(o) => {
+                    parameter_name = format!("{}", o).to_string();
+                },
+                Err(_) => {
+                    return Err(BadRequest(Some("Malformatted metric name".to_string())))
+                },
+            }
+        }
+    }
+
     let start_timestamp = NaiveDateTime::parse_from_str(
         &start_datetime.unwrap().url_decode().ok().unwrap(),
         &"%Y-%m-%dT%H:%M:%S".to_string()
@@ -99,11 +117,27 @@ fn aggregate_metrics_route(
 
     let bucket_size = (end_timestamp - start_timestamp) as f32 / bucket_count as f32;
 
+    let aggregate: String;
+    if aggregation.is_some() {
+        let result = build_query_aggregate(aggregation.unwrap(), &parameter_name);
+        match result {
+            Ok(o) => {
+                aggregate = o;
+            },
+            Err(_) => {
+                return Err(BadRequest(Some("Unknown aggregate type".to_string())))
+            }
+        }
+    } else {
+        return Err(BadRequest(Some("No aggregate type provided".to_string())))
+    }
+
     let query_string = format!(
         "SELECT
-            COUNT(*) as value,
+            ({}::DOUBLE PRECISION) as value,
             FLOOR((extract(epoch from created_at)-{})/{})::INTEGER as bucket_index
         FROM metrics {} GROUP BY bucket_index",
+        aggregate,
         start_timestamp,
         bucket_size,
         filter_clause
@@ -114,9 +148,9 @@ fn aggregate_metrics_route(
 
     let mut padded_results: Vec<Bucket> = vec![();bucket_count as usize]
         .iter().enumerate().map(
-            |(i, bucket)|
+            |(i, _)|
             Bucket {
-                value: 0,
+                value: 0.0,
                 bucket: build_bucket_datetime(i as i64, bucket_size as i64, start_timestamp),
             }
         ).collect();
@@ -198,6 +232,29 @@ fn build_filter_clause(
     }
 
     return Ok(filter_clause);
+}
+
+fn build_query_aggregate(aggregation: &str, parameter_name: &str) -> Result<String, String> {
+    match aggregation {
+        "count" => {
+            Ok("COUNT(*)".to_string())
+        },
+        "max" => {
+            Ok(format!("MAX(({})::NUMERIC)", parameter_name).to_string())
+        },
+        "min" => {
+            Ok(format!("MIN(({})::NUMERIC)", parameter_name).to_string())
+        },
+        "avg" => {
+            Ok(format!("AVG(({})::NUMERIC)", parameter_name).to_string())
+        },
+        "sum" => {
+            Ok(format!("SUM(({})::NUMERIC)", parameter_name).to_string())
+        },
+        _ => {
+            Err("Invalid aggregate specified".to_string())
+        }
+    }
 }
 
 fn is_valid_datetime_str(raw_string: &RawStr) -> bool {

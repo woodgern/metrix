@@ -5,15 +5,15 @@ use diesel::sql_types::*;
 
 #[derive(Queryable, QueryableByName)]
 pub struct BucketResult {
-    #[sql_type = "BigInt"]
-    pub value: i64,
+    #[sql_type = "Double"]
+    pub value: f64,
     #[sql_type = "Integer"]
     pub bucket_index: i32,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Bucket {
-    pub value: i64,
+    pub value: f64,
     pub bucket: NaiveDateTime,
 }
 
