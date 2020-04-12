@@ -3,6 +3,7 @@ use rocket::local::Client;
 use rocket::http::Status;
 
 use crate::parser::parse_query_string;
+use crate::parser::parse_parameter_name;
 
 #[test]
 fn ping_me_baby() {
@@ -157,6 +158,53 @@ fn parse_query_string_single_expression_greater_than_equals_operator() {
     },
     Err(_) => {
       panic!("Unable to parse query string")
+    },
+  }
+}
+
+#[test]
+fn parse_parameter_name_no_nesting() {
+  let metric_name = "data";
+
+  let parsed_name = parse_parameter_name(metric_name.to_string());
+
+  match parsed_name {
+    Ok(o) => {
+      assert_eq!(format!("{}", o), "data");
+    },
+    Err(_) => {
+      panic!("Unable to parse parameter name")
+    },
+  }
+}
+
+#[test]
+fn parse_parameter_name_single_nested_parameter() {
+  let metric_name = "data.height";
+
+  let parsed_name = parse_parameter_name(metric_name.to_string());
+
+  match parsed_name {
+    Ok(o) => {
+      assert_eq!(format!("{}", o), "data->>'height'");
+    },
+    Err(_) => {
+      panic!("Unable to parse parameter name")
+    },
+  }
+}
+
+#[test]
+fn parse_parameter_name_heavily_nested_parameter() {
+  let metric_name = "one.two.three.four.five.six.seven.eight.nine.ten";
+
+  let parsed_name = parse_parameter_name(metric_name.to_string());
+  match parsed_name {
+    Ok(o) => {
+      assert_eq!(format!("{}", o), "one->'two'->'three'->'four'->'five'->'six'->'seven'->'eight'->'nine'->>'ten'");
+    },
+    Err(_) => {
+      panic!("Unable to parse parameter name")
     },
   }
 }
