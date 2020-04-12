@@ -1,2 +1,4 @@
 metrix/target
 .cargo/
+*.swp
+
