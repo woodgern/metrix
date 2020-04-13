@@ -22,3 +22,8 @@ tests: ## run cargo tests
 
 shell: ## jump into server container
 	test -f /.dockerenv || docker exec -it metrix bash
+
+migrate: ## run diesel_cli migrations
+	cd /home/rocket/metrix; \
+	test -f /usr/local/cargo/bin/diesel || cargo install diesel_cli ; \
+	diesel setup --database-url="postgres://user:stompy@db/metrix"

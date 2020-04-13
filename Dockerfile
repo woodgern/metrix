@@ -2,7 +2,7 @@ FROM nwoodger/rust-rocket
 
 COPY . /home/rocket
 
-WORKDIR /home/rocket/metrix
+WORKDIR /home/rocket
 
 USER root
 
