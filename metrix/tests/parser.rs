@@ -150,6 +150,12 @@ fn parse_query_string_single_expression_greater_than_equals_operator() {
 }
 
 #[test]
+fn parse_parameter_name_raises_error() {
+  let metric_name = "".to_string();
+  assert_eq!(parse_parameter_name(metric_name).unwrap_err(), "Failed to parse parameter name");
+}
+
+#[test]
 fn parse_parameter_name_no_nesting() {
   let metric_name = "data";
 

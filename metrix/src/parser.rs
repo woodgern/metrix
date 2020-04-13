@@ -29,12 +29,14 @@ pub struct BaseExpression {
     value: Value,
 }
 
+#[derive(Debug)]
 pub enum FieldType {
     RootField(Field),
     NestedField(Field),
     TerminalField(()),
 }
 
+#[derive(Debug)]
 pub struct Field {
     field_root: String,
     sub_fields: Box<FieldType>,
