@@ -58,17 +58,42 @@ pub fn query_metric_route(
 }
 
 #[get("/search_parameters?<metric_name>")]
-pub fn query_metric_params(metric_name: &RawStr) -> Json<MetricDataParams> {
+pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams>, BadRequest<String>> {
+    let db_conn = establish_connection();
+    let result = metric_name.url_decode();
+    let parsed_metric_name: String;
+
+    match result {
+        Ok(o) => {
+            parsed_metric_name = o;
+        },
+        Err(_) => {
+            return Err(BadRequest(Some("bad metric_name...".to_string())));
+        }
+    }
+
+    let query_string = format!("SELECT * FROM metrics WHERE metric_name = '{}' ORDER BY id DESC LIMIT 1", parsed_metric_name);
+    println!("### query_string: {}", query_string);
+    let query_result = sql_query(query_string)
+        .load::<Metric>(&db_conn)
+        .expect("Error loading metrics");
+
+    if query_result.len() == 0 {
+        return Err(BadRequest(Some("metric name does not exist...".to_string())));
+    }
+
+    println!("metric_name found: {}", query_result[0].id);
+
     let mut vec = Vec::new();
     vec.push(String::from("a"));
     vec.push(String::from("b"));
     vec.push(String::from("c"));
 
-    Json(MetricDataParams {
+    Ok(Json(MetricDataParams {
         data: MetricDataParamNames {
             parameter_names: vec
         }
-    })
+    }))
 }
 
 #[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_name>")]
