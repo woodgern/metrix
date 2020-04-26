@@ -6,6 +6,7 @@ use diesel::sql_query;
 use rocket::http::RawStr;
 use rocket::response::status::BadRequest;
 use rocket_contrib::json::Json;
+// use serde_json::Value;
 
 use crate::db::establish_connection;
 use crate::models::*;
@@ -82,18 +83,53 @@ pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams
         return Err(BadRequest(Some("metric name does not exist...".to_string())));
     }
 
-    println!("metric_name found: {}", query_result[0].id);
+    println!("metric_name found: {}", query_result[0].data);
 
-    let mut vec = Vec::new();
-    vec.push(String::from("a"));
-    vec.push(String::from("b"));
-    vec.push(String::from("c"));
+    let paths = get_paths_from_json(&query_result[0].data);
+
+    // let mut vec = Vec::new();
+    // vec.push(String::from("a"));
+    // vec.push(String::from("b"));
+    // vec.push(String::from("c"));
 
     Ok(Json(MetricDataParams {
         data: MetricDataParamNames {
-            parameter_names: vec
+            parameter_names: paths
         }
     }))
+}
+
+fn get_paths_from_json(data: &serde_json::Value) -> Vec<String> {
+    let mut output = vec![vec![]];
+    let current_path = vec![];
+    deep_keys(&data, current_path, &mut output);
+
+    return output.into_iter().map(|keys| keys.join(".")).collect();
+}
+
+// https://stackoverflow.com/a/57275829
+fn deep_keys(value: &serde_json::Value, current_path: Vec<String>, output: &mut Vec<Vec<String>>) {
+    if current_path.len() > 0 {
+        output.push(current_path.clone());
+    }
+
+    match value {
+        serde_json::Value::Object(map) => {
+            for (k, v) in map {
+                let mut new_path = current_path.clone();
+                new_path.push(k.to_owned());
+                deep_keys(v,  new_path, output);
+            }
+        },
+        // Value::Array(array) => {
+        //     for (i, v) in array.iter().enumerate() {
+        //         let mut new_path = current_path.clone();
+        //         new_path.push(i.to_string().to_owned());
+        //         deep_keys(v,  new_path, output);
+        //     }
+        // },
+        _ => ()
+    }
 }
 
 #[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_name>")]
