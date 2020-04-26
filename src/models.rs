@@ -30,6 +30,16 @@ pub struct BucketedData {
     pub data: Buckets,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct MetricDataParamNames {
+    pub parameter_names: Vec<String>
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MetricDataParams {
+    pub data: MetricDataParamNames
+}
+
 #[derive(Serialize, Deserialize, Queryable, QueryableByName)]
 #[table_name="metrics"]
 pub struct Metric {

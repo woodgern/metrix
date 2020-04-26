@@ -57,6 +57,20 @@ pub fn query_metric_route(
     Ok(Json(results))
 }
 
+#[get("/search_parameters?<metric_name>")]
+pub fn query_metric_params(metric_name: &RawStr) -> Json<MetricDataParams> {
+    let mut vec = Vec::new();
+    vec.push(String::from("a"));
+    vec.push(String::from("b"));
+    vec.push(String::from("c"));
+
+    Json(MetricDataParams {
+        data: MetricDataParamNames {
+            parameter_names: vec
+        }
+    })
+}
+
 #[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_name>")]
 pub fn aggregate_metrics_route(
     aggregation: Option<&RawStr>,
