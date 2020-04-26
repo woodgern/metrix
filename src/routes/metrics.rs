@@ -84,14 +84,15 @@ pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams
     }
 
     println!("metric_name found: {}", query_result[0].data);
+    let paths: Vec<String>;
 
-    let paths = get_paths_from_json(&query_result[0].data);
+    if query_result[0].data.is_object() {
+        paths = get_paths_from_json(&query_result[0].data);
+    } else {
+        paths = vec![];
+    }
 
-    // let mut vec = Vec::new();
-    // vec.push(String::from("a"));
-    // vec.push(String::from("b"));
-    // vec.push(String::from("c"));
-
+    // let paths = get_paths_from_json(&query_result[0].data);
     Ok(Json(MetricDataParams {
         data: MetricDataParamNames {
             parameter_names: paths
