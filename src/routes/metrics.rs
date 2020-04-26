@@ -100,7 +100,7 @@ pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams
 }
 
 fn get_paths_from_json(data: &serde_json::Value) -> Vec<String> {
-    let mut output = vec![vec![]];
+    let mut output: Vec<Vec<String>> = vec![];
     let current_path = vec![];
     deep_keys(&data, current_path, &mut output);
 
@@ -118,7 +118,7 @@ fn deep_keys(value: &serde_json::Value, current_path: Vec<String>, output: &mut 
             for (k, v) in map {
                 let mut new_path = current_path.clone();
                 new_path.push(k.to_owned());
-                deep_keys(v,  new_path, output);
+                deep_keys(v, new_path, output);
             }
         },
         // Value::Array(array) => {
