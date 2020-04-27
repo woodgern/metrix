@@ -57,6 +57,79 @@ pub fn query_metric_route(
     Ok(Json(results))
 }
 
+#[get("/search_parameters?<metric_name>")]
+pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams>, BadRequest<String>> {
+    let db_conn = establish_connection();
+    let result = metric_name.url_decode();
+    let parsed_metric_name: String;
+
+    match result {
+        Ok(o) => {
+            parsed_metric_name = o;
+        },
+        Err(_) => {
+            return Err(BadRequest(Some("bad metric_name...".to_string())));
+        }
+    }
+
+    let query_string = format!("SELECT * FROM metrics WHERE metric_name = '{}' ORDER BY id DESC LIMIT 1", parsed_metric_name);
+
+    let query_result = sql_query(query_string)
+        .load::<Metric>(&db_conn)
+        .expect("Error loading metrics");
+
+    if query_result.len() == 0 {
+        return Err(BadRequest(Some("metric name does not exist...".to_string())));
+    }
+
+    let paths: Vec<String>;
+    if query_result[0].data.is_object() {
+        paths = get_paths_from_json(&query_result[0].data);
+    } else {
+        paths = vec![];
+    }
+
+    // let paths = get_paths_from_json(&query_result[0].data);
+    Ok(Json(MetricDataParams {
+        data: MetricDataParamNames {
+            parameter_names: paths
+        }
+    }))
+}
+
+fn get_paths_from_json(data: &serde_json::Value) -> Vec<String> {
+    let mut output: Vec<Vec<String>> = vec![];
+    let current_path = vec![];
+    deep_keys(&data, current_path, &mut output);
+
+    return output.into_iter().map(|keys| keys.join(".")).collect();
+}
+
+// https://stackoverflow.com/a/57275829
+fn deep_keys(value: &serde_json::Value, current_path: Vec<String>, output: &mut Vec<Vec<String>>) {
+    if current_path.len() > 0 {
+        output.push(current_path.clone());
+    }
+
+    match value {
+        serde_json::Value::Object(map) => {
+            for (k, v) in map {
+                let mut new_path = current_path.clone();
+                new_path.push(k.to_owned());
+                deep_keys(v, new_path, output);
+            }
+        },
+        // Value::Array(array) => {
+        //     for (i, v) in array.iter().enumerate() {
+        //         let mut new_path = current_path.clone();
+        //         new_path.push(i.to_string().to_owned());
+        //         deep_keys(v,  new_path, output);
+        //     }
+        // },
+        _ => ()
+    }
+}
+
 #[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_name>")]
 pub fn aggregate_metrics_route(
     aggregation: Option<&RawStr>,
