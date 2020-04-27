@@ -6,7 +6,6 @@ use diesel::sql_query;
 use rocket::http::RawStr;
 use rocket::response::status::BadRequest;
 use rocket_contrib::json::Json;
-// use serde_json::Value;
 
 use crate::db::establish_connection;
 use crate::models::*;
@@ -74,7 +73,7 @@ pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams
     }
 
     let query_string = format!("SELECT * FROM metrics WHERE metric_name = '{}' ORDER BY id DESC LIMIT 1", parsed_metric_name);
-    println!("### query_string: {}", query_string);
+
     let query_result = sql_query(query_string)
         .load::<Metric>(&db_conn)
         .expect("Error loading metrics");
@@ -83,9 +82,7 @@ pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams
         return Err(BadRequest(Some("metric name does not exist...".to_string())));
     }
 
-    println!("metric_name found: {}", query_result[0].data);
     let paths: Vec<String>;
-
     if query_result[0].data.is_object() {
         paths = get_paths_from_json(&query_result[0].data);
     } else {
