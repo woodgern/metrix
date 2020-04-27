@@ -20,6 +20,7 @@ pub fn create_app() -> rocket::Rocket {
             routes::metrics::create_metric_route,
             routes::metrics::query_metric_route,
             routes::metrics::aggregate_metrics_route,
-            routes::metrics::query_metric_params
+            routes::metrics::query_metric_params,
+            routes::metrics::search_metric_names
         ])
 }
