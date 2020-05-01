@@ -14,6 +14,12 @@ pub struct BucketResult {
     pub bucket_index: i32,
 }
 
+#[derive(Queryable, QueryableByName)]
+pub struct MetricNameResult {
+    #[sql_type = "Text"]
+    pub metric_name: String
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Bucket {
     pub value: f64,
@@ -38,6 +44,16 @@ pub struct MetricDataParamNames {
 #[derive(Serialize, Deserialize)]
 pub struct MetricDataParams {
     pub data: MetricDataParamNames
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MetricNames {
+    pub metric_names: Vec<String>
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MetricNameParams {
+    pub data: MetricNames
 }
 
 #[derive(Serialize, Deserialize, Queryable, QueryableByName)]

@@ -57,6 +57,33 @@ pub fn query_metric_route(
     Ok(Json(results))
 }
 
+#[get("/search_metric_names?<q>")]
+pub fn search_metric_names(q: &RawStr) -> Result<Json<MetricNameParams>, BadRequest<String>> {
+    let db_conn = establish_connection();
+    let parsed_query :String;
+
+    match q.url_decode() {
+        Ok(query) => {
+            parsed_query = query;
+        },
+        Err(_) => {
+            return Err(BadRequest(Some("bad query...".to_string())));
+        }
+    }
+
+    let query_string = format!("SELECT DISTINCT(metric_name) AS metric_name FROM metrics WHERE metric_name LIKE '%{}%' LIMIT 20", parsed_query);
+
+    let query_result = sql_query(query_string)
+        .load::<MetricNameResult>(&db_conn)
+        .expect("Error loading metrics");
+
+    Ok(Json(MetricNameParams {
+        data: MetricNames {
+            metric_names: query_result.into_iter().map(|metric_name_obj| metric_name_obj.metric_name).collect()
+        }
+    }))
+}
+
 #[get("/search_parameters?<metric_name>")]
 pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams>, BadRequest<String>> {
     let db_conn = establish_connection();
