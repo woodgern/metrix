@@ -1,8 +1,8 @@
 version: 2.1
 jobs:
   build:
-    docker: 
+    docker:
       - image: nwoodger/rust-rocket
     steps:
       - checkout
-      - run: make tests
+      - run: ./test.sh
