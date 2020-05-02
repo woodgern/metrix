@@ -157,7 +157,7 @@ fn deep_keys(value: &serde_json::Value, current_path: Vec<String>, output: &mut 
     }
 }
 
-#[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_name>")]
+#[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_data_path>")]
 pub fn aggregate_metrics_route(
     aggregation: Option<&RawStr>,
     offset: Option<&RawStr>,
@@ -165,11 +165,14 @@ pub fn aggregate_metrics_route(
     end_datetime: Option<&RawStr>,
     q: Option<&RawStr>,
     bucket_count: i32,
-    metric_name: Option<&RawStr>,
+    metric_data_path: Option<&RawStr>,
 ) -> Result<Json<BucketedData>, BadRequest<String>> {
 
+    if !start_datetime.is_some() || !end_datetime.is_some() {
+        return Err(BadRequest(Some("You need to send start_datetime and end_datetime".to_string())));
+    }
+    // TODO: datatime range IS NOT OPTIONAL
     let db_conn = establish_connection();
-
     let filter_clause: String;
     let result = build_filter_clause(offset, start_datetime, end_datetime, q);
     match result {
@@ -182,8 +185,8 @@ pub fn aggregate_metrics_route(
     }
 
     let mut parameter_name = String::from("");
-    if metric_name.is_some() {
-        let param_name = metric_name.unwrap().url_decode();
+    if metric_data_path.is_some() {
+        let param_name = metric_data_path.unwrap().url_decode();
         if param_name.is_ok() {
             let result = parse_parameter_name(param_name.ok().unwrap());
             match result {
@@ -228,12 +231,16 @@ pub fn aggregate_metrics_route(
         "SELECT
             ({}::DOUBLE PRECISION) as value,
             FLOOR((extract(epoch from created_at)-{})/{})::INTEGER as bucket_index
-        FROM metrics {} GROUP BY bucket_index",
+        FROM metrics {}
+        GROUP BY bucket_index",
         aggregate,
         start_timestamp,
         bucket_size,
         filter_clause
     );
+
+    println!("### QUERY: {}", query_string);
+
     let results = sql_query(query_string)
         .load::<BucketResult>(&db_conn)
         .expect("Error loading metrics");
