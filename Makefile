@@ -15,10 +15,6 @@ server: ## start docker/server
 build: ## just build the app
 	test -f /.dockerenv && cd metrix && cargo build
 
-tests-ci: ## run tests for CI
-	docker-compose build metrix
-	docker-compose run --service-ports --rm --name metrix metrix bash -c "./test.sh"
-
 tests: ## run cargo tests
 	test -f /.dockerenv || docker-compose build metrix
 	test -f /.dockerenv || docker-compose run --service-ports --rm --name metrix metrix bash || true
