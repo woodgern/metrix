@@ -2,9 +2,9 @@ use chrono::naive::NaiveDateTime;
 
 use diesel::sql_types::*;
 use serde_json;
+use rocket_contrib::json::Json;
 
 use crate::schema::metrics;
-
 
 #[derive(Queryable, QueryableByName)]
 pub struct BucketResult {
@@ -71,4 +71,24 @@ pub struct Metric {
 pub struct NewMetric {
     pub metric_name: String,
     pub data: serde_json::Value,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ErrorObject {
+    pub message: String,
+    // pub code: usize,
+}
+
+#[derive(Serialize, Debug)]
+pub struct Error {
+    pub errors: Vec<ErrorObject>,
+}
+
+#[derive(Responder, Debug)]
+pub enum ErrorResponder {
+    #[response(status = 400, content_type = "json")]
+    UserError(Json<Error>),
+
+    #[response(status = 500, content_type = "json")]
+    FatalError(Json<Error>),
 }

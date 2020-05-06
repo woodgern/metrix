@@ -58,7 +58,7 @@ pub fn query_metric_route(
 }
 
 #[get("/search_metric_names?<q>")]
-pub fn search_metric_names(q: &RawStr) -> Result<Json<MetricNameParams>, BadRequest<String>> {
+pub fn search_metric_names(q: &RawStr) -> Result<Json<MetricNameParams>, ErrorResponder> {
     let db_conn = establish_connection();
     let parsed_query :String;
 
@@ -67,7 +67,9 @@ pub fn search_metric_names(q: &RawStr) -> Result<Json<MetricNameParams>, BadRequ
             parsed_query = query;
         },
         Err(_) => {
-            return Err(BadRequest(Some("bad query...".to_string())));
+            return Err(ErrorResponder::UserError(Json(Error {
+                errors: vec![ErrorObject { message: "bad value for `q` param".to_string() }]
+            })));
         }
     }
 
