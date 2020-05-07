@@ -3,6 +3,17 @@ jobs:
   build:
     docker:
       - image: nwoodger/rust-rocket
+        environment:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: stompy
+          POSTGRES_DB: metrix
+      - image: postgres
+        environment:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: stompy
+          POSTGRES_DB: metrix
     steps:
       - checkout
       - run: ./test.sh

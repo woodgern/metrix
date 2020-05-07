@@ -5,3 +5,6 @@ port = 8000
 [development]
 address = "0.0.0.0"
 port = 8000
+
+[global.databases]
+postgres_db = { url = "replace-this-ROCKET_DATABASES-env-var", pool_size = 10 }

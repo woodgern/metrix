@@ -1,5 +1,5 @@
 .DEFAULT_GOAL:=help
-.PHONY: help server
+.PHONY: help server tests
 
 help: ## Show all the available make commands
 	@echo "\n======================================================================================================================================================================="
