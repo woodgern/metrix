@@ -87,8 +87,8 @@ pub struct Error {
 #[derive(Responder, Debug)]
 pub enum ErrorResponder {
     #[response(status = 400, content_type = "json")]
-    UserError(Json<Error>),
+    BadRequest(Json<Error>),
 
     #[response(status = 500, content_type = "json")]
-    FatalError(Json<Error>),
+    InternalServerError(Json<Error>),
 }
