@@ -7,6 +7,7 @@ use rocket::http::RawStr;
 use rocket::response::status::BadRequest;
 use rocket_contrib::json::Json;
 
+use crate::DbConn;
 use crate::db::establish_connection;
 use crate::models::*;
 use crate::parser::parse_parameter_name;
@@ -60,9 +61,9 @@ pub fn query_metric_route(
 }
 
 #[get("/search_metric_names?<q>")]
-pub fn search_metric_names(q: &RawStr) -> Result<Json<MetricNameParams>, ErrorResponder> {
-    let db_conn = establish_connection();
-    let parsed_query :String;
+pub fn search_metric_names(db_conn: DbConn, q: &RawStr) -> Result<Json<MetricNameParams>, ErrorResponder> {
+    // let db_conn = establish_connection();
+    let parsed_query : String;
 
     match q.url_decode() {
         Ok(query) => {
@@ -78,7 +79,7 @@ pub fn search_metric_names(q: &RawStr) -> Result<Json<MetricNameParams>, ErrorRe
     let query_string = format!("SELECT DISTINCT(metric_name) AS metric_name FROM metrics WHERE metric_name LIKE '%{}%' LIMIT 20", parsed_query);
 
     let query_result = sql_query(query_string)
-        .load::<MetricNameResult>(&db_conn)
+        .load::<MetricNameResult>(&*db_conn)
         .expect("Error loading metrics");
 
     Ok(Json(MetricNameParams {
