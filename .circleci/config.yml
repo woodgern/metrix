@@ -4,7 +4,7 @@ jobs:
     docker:
       - image: nwoodger/rust-rocket
         environment:
-          DB_HOST: db
+          DB_HOST: localhost
           DB_PORT: 5432
           POSTGRES_USER: user
           POSTGRES_PASSWORD: stompy
