@@ -8,7 +8,6 @@ use rocket::response::status::BadRequest;
 use rocket_contrib::json::Json;
 
 use crate::DbConn;
-use crate::db::establish_connection;
 use crate::models::*;
 use crate::parser::parse_parameter_name;
 use crate::parser::parse_query_string;
@@ -16,13 +15,12 @@ use crate::schema::metrics;
 
 
 #[post("/", data = "<metric_body>")]
-pub fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
+pub fn create_metric_route(db_conn: DbConn, metric_body: Json<NewMetric>) -> Json<Metric> {
     let new_metric: NewMetric = metric_body.into_inner();
-    let db_conn = establish_connection();
 
     let result: Metric = diesel::insert_into(metrics::table)
         .values(&new_metric)
-        .get_result(&db_conn)
+        .get_result(&*db_conn)
         .expect("Error saving new metric");
 
     Json(result)
@@ -30,13 +28,12 @@ pub fn create_metric_route(metric_body: Json<NewMetric>) -> Json<Metric> {
 
 #[get("/?<offset>&<start_datetime>&<end_datetime>&<q>")]
 pub fn query_metric_route(
+    db_conn: DbConn,
     offset: Option<&RawStr>,
     start_datetime: Option<&RawStr>,
     end_datetime: Option<&RawStr>,
     q: Option<&RawStr>,
 ) -> Result<Json<Vec<Metric>>, ErrorResponder> {
-    let db_conn = establish_connection();
-
     let filter_clause: String;
     let result = build_filter_clause(offset, start_datetime, end_datetime, q);
     match result {
@@ -54,7 +51,7 @@ pub fn query_metric_route(
 
     let query_string = format!("SELECT * FROM metrics {} ORDER BY id LIMIT 10", filter_clause);
     let results = sql_query(query_string)
-        .load(&db_conn)
+        .load(&*db_conn)
         .expect("Error loading metrics");
 
     Ok(Json(results))
@@ -62,7 +59,6 @@ pub fn query_metric_route(
 
 #[get("/search_metric_names?<q>")]
 pub fn search_metric_names(db_conn: DbConn, q: &RawStr) -> Result<Json<MetricNameParams>, ErrorResponder> {
-    // let db_conn = establish_connection();
     let parsed_query : String;
 
     match q.url_decode() {
@@ -90,8 +86,7 @@ pub fn search_metric_names(db_conn: DbConn, q: &RawStr) -> Result<Json<MetricNam
 }
 
 #[get("/search_parameters?<metric_name>")]
-pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams>, ErrorResponder> {
-    let db_conn = establish_connection();
+pub fn query_metric_params(db_conn: DbConn, metric_name: &RawStr) -> Result<Json<MetricDataParams>, ErrorResponder> {
     let result = metric_name.url_decode();
     let parsed_metric_name: String;
 
@@ -109,7 +104,7 @@ pub fn query_metric_params(metric_name: &RawStr) -> Result<Json<MetricDataParams
     let query_string = format!("SELECT * FROM metrics WHERE metric_name = '{}' ORDER BY id DESC LIMIT 1", parsed_metric_name);
 
     let query_result = sql_query(query_string)
-        .load::<Metric>(&db_conn)
+        .load::<Metric>(&*db_conn)
         .expect("Error loading metrics");
 
     if query_result.len() == 0 {
@@ -167,6 +162,7 @@ fn deep_keys(value: &serde_json::Value, current_path: Vec<String>, output: &mut 
 
 #[get("/<aggregation>?<offset>&<start_datetime>&<end_datetime>&<q>&<bucket_count>&<metric_data_path>")]
 pub fn aggregate_metrics_route(
+    db_conn: DbConn,
     aggregation: Option<&RawStr>,
     offset: Option<&RawStr>,
     start_datetime: Option<&RawStr>,
@@ -182,7 +178,6 @@ pub fn aggregate_metrics_route(
         })));
     }
 
-    let db_conn = establish_connection();
     let filter_clause: String;
     let result = build_filter_clause(offset, start_datetime, end_datetime, q);
     match result {
@@ -266,7 +261,7 @@ pub fn aggregate_metrics_route(
     println!("### QUERY: {}", query_string);
 
     let results = sql_query(query_string)
-        .load::<BucketResult>(&db_conn)
+        .load::<BucketResult>(&*db_conn)
         .expect("Error loading metrics");
 
     let mut padded_results: Vec<Bucket> = vec![();bucket_count as usize]
