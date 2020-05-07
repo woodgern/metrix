@@ -33,7 +33,7 @@ pub fn query_metric_route(
     start_datetime: Option<&RawStr>,
     end_datetime: Option<&RawStr>,
     q: Option<&RawStr>,
-) -> Result<Json<Vec<Metric>>, ErrorResponder> {
+) -> Result<Json<Vec<Metric>>, BadRequest<Json<Error>>> {
     let filter_clause: String;
     let result = build_filter_clause(offset, start_datetime, end_datetime, q);
     match result {
@@ -41,9 +41,9 @@ pub fn query_metric_route(
             filter_clause = o;
         },
         Err(_) => {
-            return Err(ErrorResponder::BadRequest(Json(Error {
+            return Err(BadRequest(Some(Json(Error {
                 errors: vec![ErrorObject { message: "bad value for `q` param".to_string() }]
-            })));
+            }))));
         },
     }
 
@@ -58,7 +58,7 @@ pub fn query_metric_route(
 }
 
 #[get("/search_metric_names?<q>")]
-pub fn search_metric_names(db_conn: DbConn, q: &RawStr) -> Result<Json<MetricNameParams>, ErrorResponder> {
+pub fn search_metric_names(db_conn: DbConn, q: &RawStr) -> Result<Json<MetricNameParams>, BadRequest<Json<Error>>> {
     let parsed_query : String;
 
     match q.url_decode() {
@@ -66,9 +66,9 @@ pub fn search_metric_names(db_conn: DbConn, q: &RawStr) -> Result<Json<MetricNam
             parsed_query = query;
         },
         Err(_) => {
-            return Err(ErrorResponder::BadRequest(Json(Error {
+            return Err(BadRequest(Some(Json(Error {
                 errors: vec![ErrorObject { message: "bad value for `q` param".to_string() }]
-            })));
+            }))));
         }
     }
 
@@ -86,7 +86,7 @@ pub fn search_metric_names(db_conn: DbConn, q: &RawStr) -> Result<Json<MetricNam
 }
 
 #[get("/search_parameters?<metric_name>")]
-pub fn query_metric_params(db_conn: DbConn, metric_name: &RawStr) -> Result<Json<MetricDataParams>, ErrorResponder> {
+pub fn query_metric_params(db_conn: DbConn, metric_name: &RawStr) -> Result<Json<MetricDataParams>, BadRequest<Json<Error>>> {
     let result = metric_name.url_decode();
     let parsed_metric_name: String;
 
@@ -95,9 +95,9 @@ pub fn query_metric_params(db_conn: DbConn, metric_name: &RawStr) -> Result<Json
             parsed_metric_name = o;
         },
         Err(_) => {
-            return Err(ErrorResponder::BadRequest(Json(Error {
+            return Err(BadRequest(Some(Json(Error {
                 errors: vec![ErrorObject { message: "bad `metric_name` param".to_string() }]
-            })));
+            }))));
         }
     }
 
@@ -108,9 +108,9 @@ pub fn query_metric_params(db_conn: DbConn, metric_name: &RawStr) -> Result<Json
         .expect("Error loading metrics");
 
     if query_result.len() == 0 {
-        return Err(ErrorResponder::BadRequest(Json(Error {
+        return Err(BadRequest(Some(Json(Error {
             errors: vec![ErrorObject { message: "no entry found for `metric_name`".to_string() }]
-        })));
+        }))));
     }
 
     let paths: Vec<String>;
@@ -170,12 +170,12 @@ pub fn aggregate_metrics_route(
     q: Option<&RawStr>,
     bucket_count: i32,
     metric_data_path: Option<&RawStr>,
-) -> Result<Json<BucketedData>, ErrorResponder> {
+) -> Result<Json<BucketedData>, BadRequest<Json<Error>>> {
 
     if !start_datetime.is_some() || !end_datetime.is_some() {
-        return Err(ErrorResponder::BadRequest(Json(Error {
+        return Err(BadRequest(Some(Json(Error {
             errors: vec![ErrorObject { message: "You need to send start_datetime and end_datetime".to_string() }]
-        })));
+        }))));
     }
 
     let filter_clause: String;
@@ -185,9 +185,9 @@ pub fn aggregate_metrics_route(
             filter_clause = o;
         },
         Err(_) => {
-            return Err(ErrorResponder::BadRequest(Json(Error {
+            return Err(BadRequest(Some(Json(Error {
                 errors: vec![ErrorObject { message: "bad value for `q` param".to_string() }]
-            })));
+            }))));
         },
     }
 
@@ -201,11 +201,11 @@ pub fn aggregate_metrics_route(
                     parameter_name = format!("{}", o).to_string();
                 },
                 Err(_) => {
-                    return Err(ErrorResponder::BadRequest(Json(Error {
+                    return Err(BadRequest(Some(Json(Error {
                         errors: vec![ErrorObject {
                             message: "malformatted `metric_data_path` param".to_string()
                         }]
-                    })));
+                    }))));
                 },
             }
         }
@@ -231,19 +231,19 @@ pub fn aggregate_metrics_route(
                 aggregate = o;
             },
             Err(_) => {
-                return Err(ErrorResponder::BadRequest(Json(Error {
+                return Err(BadRequest(Some(Json(Error {
                     errors: vec![ErrorObject {
                         message: "unknown aggregate type".to_string()
                     }]
-                })));
+                }))));
             }
         }
     } else {
-        return Err(ErrorResponder::BadRequest(Json(Error {
+        return Err(BadRequest(Some(Json(Error {
             errors: vec![ErrorObject {
                 message: "No aggregate type provided".to_string()
             }]
-        })));
+        }))));
     }
 
     let query_string = format!(

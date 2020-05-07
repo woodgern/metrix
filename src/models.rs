@@ -2,7 +2,6 @@ use chrono::naive::NaiveDateTime;
 
 use diesel::sql_types::*;
 use serde_json;
-use rocket_contrib::json::Json;
 
 use crate::schema::metrics;
 
@@ -82,13 +81,4 @@ pub struct ErrorObject {
 #[derive(Serialize, Debug)]
 pub struct Error {
     pub errors: Vec<ErrorObject>,
-}
-
-#[derive(Responder, Debug)]
-pub enum ErrorResponder {
-    #[response(status = 400, content_type = "json")]
-    BadRequest(Json<Error>),
-
-    #[response(status = 500, content_type = "json")]
-    InternalServerError(Json<Error>),
 }
