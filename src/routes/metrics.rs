@@ -1,5 +1,4 @@
 use chrono::naive::NaiveDateTime;
-use std::mem::replace;
 
 use diesel::prelude::*;
 use diesel::sql_query;
@@ -274,10 +273,10 @@ pub fn aggregate_metrics_route(
         ).collect();
 
     for result in &results {
-        replace(&mut padded_results[result.bucket_index as usize], Bucket {
+        padded_results[result.bucket_index as usize] = Bucket {
             value: result.value,
             bucket: build_bucket_datetime(result.bucket_index as i64, bucket_size as i64, start_timestamp),
-        });
+        };
     }
     return Ok(Json(
         BucketedData {
